@@ -123,6 +123,8 @@
         }
 
         if (minSum > 120) bestMatch = null;
+
+        screenshot.delete();
     }
 
     setInterval(refreshHero, 5000);
