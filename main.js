@@ -4,6 +4,7 @@
 // @version      0.1
 // @description  Display what is streamer playing in hearthstone battleground
 // @author       Longern
+// @downloadURL  https://gitee.com/longern/hs-wisp/raw/main/main.js
 // @include      https://www.douyu.com/*
 // @include      https://www.huya.com/*
 // @include      https://www.twitch.tv/*
