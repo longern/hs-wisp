@@ -80,6 +80,17 @@
 
         if (bestMatch === null) return;
         tooltip_area.title = "主播在玩" + card_image_urls[bestMatch].name;
+        const child_cards_url = `https://hs.blizzard.cn/action/hs/cards/battleround?ids=${card_image_urls[bestMatch].childIds.join(",")}`;
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: child_cards_url,
+            responseType: "json",
+            onload(res) {
+                for (let card of res.response.cards) {
+                    tooltip_area.title += `\n${card.name}：${card.text}`;
+                }
+            },
+        });
     }
 
     function refreshHero() {
