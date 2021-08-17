@@ -24,19 +24,33 @@
     });
     document.head.appendChild(script);
 
-    const screenshot_canvas = document.createElement("canvas");
-    screenshot_canvas.width = 262;
-    screenshot_canvas.height = 314;
+    const screenshotCanvas = document.createElement("canvas");
+    screenshotCanvas.width = 262;
+    screenshotCanvas.height = 314;
 
-    const card_image_urls = {};
+    const API_BASE_URL =  "https://hs.blizzard.cn/action/hs/cards/battleround"
+    const cardImageUrls = {};
     GM_xmlhttpRequest({
         method: "GET",
-        url: "https://hs.blizzard.cn/action/hs/cards/battleround?type=hero",
+        url: `${API_BASE_URL}?type=hero`,
         responseType: "json",
         onload(res) {
+            let childIds = [];
             for (let card of res.response.cards) {
-                card_image_urls[card.id] = card;
+                cardImageUrls[card.id] = card;
+                childIds.push(...card.childIds);
             }
+            const childCardsUrl = `${API_BASE_URL}?ids=${childIds.join(",")}`;
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: childCardsUrl,
+                responseType: "json",
+                onload(res) {
+                    for (let card of res.response.cards) {
+                        cardImageUrls[card.id] = card;
+                    }
+                },
+            });
         },
     });
 
@@ -60,37 +74,30 @@
     }
 
     let bestMatch = null;
-    let card_images = null;
-    let tooltip_area = null;
+    let cardImages = null;
+    let tooltipArea = null;
 
     function refreshHeroTooltip() {
-        if (tooltip_area === null) {
-            tooltip_area = document.createElement("div");
-            tooltip_area.style.position = "fixed";
-            tooltip_area.style.zIndex = "999";
-            document.body.appendChild(tooltip_area);
+        if (tooltipArea === null) {
+            tooltipArea = document.createElement("div");
+            tooltipArea.style.position = "fixed";
+            tooltipArea.style.zIndex = "999";
+            document.body.appendChild(tooltipArea);
         }
 
         const video = document.querySelector("video");
         const rect = video.getBoundingClientRect();
-        tooltip_area.style.left = (rect.left + 0.4671 * rect.width) + "px";
-        tooltip_area.style.top = (rect.top + 0.6897 * rect.height) + "px";
-        tooltip_area.style.width = (0.0676 * rect.width) + "px";
-        tooltip_area.style.height = (0.1430 * rect.height) + "px";
+        tooltipArea.style.left = (rect.left + 0.4671 * rect.width) + "px";
+        tooltipArea.style.top = (rect.top + 0.6897 * rect.height) + "px";
+        tooltipArea.style.width = (0.0676 * rect.width) + "px";
+        tooltipArea.style.height = (0.1430 * rect.height) + "px";
 
         if (bestMatch === null) return;
-        tooltip_area.title = "主播在玩" + card_image_urls[bestMatch].name;
-        const child_cards_url = `https://hs.blizzard.cn/action/hs/cards/battleround?ids=${card_image_urls[bestMatch].childIds.join(",")}`;
-        GM_xmlhttpRequest({
-            method: "GET",
-            url: child_cards_url,
-            responseType: "json",
-            onload(res) {
-                for (let card of res.response.cards) {
-                    tooltip_area.title += `\n${card.name}：${card.text}`;
-                }
-            },
-        });
+        tooltipArea.title = "主播在玩" + cardImageUrls[bestMatch].name;
+        for (let cardId of cardImageUrls[bestMatch].childIds) {
+            const card = cardImageUrls[cardId];
+            tooltipArea.title += `\n${card.name}：${card.text.replace(/<[^>]+>/g, "")}`;
+        }
     }
 
     function refreshHero() {
@@ -101,18 +108,20 @@
 
         if (typeof cv === "undefined") return;
 
-        for (let card in card_image_urls) {
-            if (card_images !== null && card in card_images) continue;
+        for (let card in cardImageUrls) {
+            if (cardImages !== null && card in cardImages) continue;
+            if (!cardImageUrls[card].battlegrounds.hero) continue;
+
             const roi = new cv.Rect(58, 100, 262, 314);
-            imReadURL(card_image_urls[card].image).then(img => {
-                if (card_images === null) card_images = {};
-                card_images[card] = cv.imread(img).roi(roi);
+            imReadURL(cardImageUrls[card].image).then(img => {
+                if (cardImages === null) cardImages = {};
+                cardImages[card] = cv.imread(img).roi(roi);
             });
         }
 
-        if (card_images === null) return;
+        if (cardImages === null) return;
 
-        var context = screenshot_canvas.getContext('2d');
+        var context = screenshotCanvas.getContext('2d');
         const sr = [
             0.4671 * video.videoWidth,
             0.6897 * video.videoHeight,
@@ -120,12 +129,12 @@
             0.1430 * video.videoHeight,
         ];
         context.drawImage(video, ...sr, 0, 0, 262, 314);
-        const screenshot = cv.imread(screenshot_canvas);
+        const screenshot = cv.imread(screenshotCanvas);
 
         let minSum = 255. * 4;
-        for (let card in card_images) {
+        for (let card in cardImages) {
             let dst = new cv.Mat();
-            cv.absdiff(screenshot, card_images[card], dst);
+            cv.absdiff(screenshot, cardImages[card], dst);
             const diffSum = cv.mean(dst).reduce((a, b) => a + b);
             if (diffSum < minSum) {
                 minSum = diffSum;
