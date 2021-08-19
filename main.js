@@ -28,7 +28,7 @@
     screenshotCanvas.width = 262;
     screenshotCanvas.height = 314;
 
-    const API_BASE_URL =  "https://hs.blizzard.cn/action/hs/cards/battleround"
+    const API_BASE_URL = "https://hs.blizzard.cn/action/hs/cards/battleround";
     const cardImageUrls = {};
     GM_xmlhttpRequest({
         method: "GET",
